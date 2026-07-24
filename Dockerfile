@@ -23,18 +23,33 @@ RUN cp /tmp/repo/src/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
 # Environment variables (override at runtime)
-#   CW_CRON_SCHEDULE       (optional)  Default cron schedule (every 6 hours)
-ENV CW_CRON_SCHEDULE="0 */6 * * *"
-#   CW_CERT_API_KEY        (required)  The API Key for the certificate
-#   CW_KEY_API_KEY         (required)  The API Key for the certificate's Key
+
+##
+## Certwarden Configuartion
+##
 #   CW_HOST                (required)  hostname for the certwarden instance, including port (443) 
 #   CW_CERT_NAME           (required)  Certificate name used to build API path (certwarden/api/v1/download/privatecerts/<<CW_CERT_NAME>> for qnap)
-#   CW_CERT_FILE_NAME      (optional)  output file name (stunnel.pem for QNAP)
-ENV CW_CERT_FILE_NAME="stunnel.pem"
-#   CW_NAS_HOST            (required)  IP / Hostname for the local NAS
-#   CW_NAS_ADMIN_USER      (optional) username for the admin account on the nas to restart stunnel and Qthttpd services
-ENV CW_NAS_ADMIN_USER="admin"
-#   CW_NAS_SSH_KEY_file    (required) filename to use for the SSH key to restart stunnel and Qthttpd services
+#   CW_CERT_API_KEY        (required)  The API Key for the certificate
+#   CW_KEY_API_KEY         (required)  The API Key for the certificate's Key
+
+##
+## QNAP Configuration
+##
+#   QNAP_CERT_PATH         (optional)  path to target certificate file (stunnel.pem for QNAP)
+ENV QNAP_CERT_PATH="/etc/stunnel/stunnel.pem"
+#   QNAP_HOST              (required)  IP / Hostname for the local NAS
+#   QNAP_ADMIN_USER        (optional) username for the admin account on the nas to restart stunnel and Qthttpd services
+ENV QNAP_ADMIN_USER="admin"
+#   QNAP_SSH_KEY_file      (required) path within the container to the SSH SSH key to be used by the QNAP_ADMIN_USER to copy the cert 
+#                                     and restart the  stunnel and Qthttpd services.
+#                                      to persist across restarts, this should exist in the persistent data folder
+
+##
+## Optional Custom Cron Schedule
+##
+#   CCQ_CRON_SCHEDULE       (optional)  Default cron schedule (every 6 hours)
+ENV CCQ_CRON_SCHEDULE="0 */6 * * *"
+
 
 # Start cron in the foreground
 ENTRYPOINT ["/app/entrypoint.sh"]
