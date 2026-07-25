@@ -7,6 +7,68 @@ log() {
 
 DEFAULT_SCHEDULE="0 */6 * * *"
 
+validate_env_value() {
+    var_name="$1"
+    value="$2"
+
+    # Check if the variable is unset 
+    if [ -z "${value+x}" ]; then
+        log "ERROR: Environment variable '$var_name' is not set"
+        return 1
+    fi
+
+    # Check if the variable is empty
+    if [ -z "$value" ]; then
+        log "ERROR: Environment variable '$var_name' is empty"
+        return 1
+    fi
+
+    # Check if the variable is only whitespace
+    if [ -z "${value//[[:space:]]/}" ]; then
+        log "ERROR: Environment variable '$var_name' is blank or whitespace-only"
+        return 1
+    fi
+
+    return 0
+}
+
+validate_required_env() {
+
+    if ! validate_env_value "CW_HOST" "${CW_HOST}"; then
+        return 1
+    fi
+
+    if ! validate_env_value "CW_CERT_NAME" "${CW_CERT_NAME}"; then
+        return 1
+    fi
+
+    if ! validate_env_value "CW_CERT_API_KEY" "${CW_CERT_API_KEY}"; then
+        return 1
+    fi
+
+    if ! validate_env_value "CW_KEY_API_KEY" "${CW_KEY_API_KEY}"; then
+        return 1
+    fi
+
+    if ! validate_env_value "QNAP_HOST" "${QNAP_HOST}"; then
+        return 1
+    fi
+
+    if ! validate_env_value "QNAP_CERT_PATH" "${QNAP_CERT_PATH}"; then
+        return 1
+    fi
+
+    if ! validate_env_value "QNAP_ADMIN_USER" "${QNAP_ADMIN_USER}"; then
+        return 1
+    fi
+
+    if ! validate_env_value "QNAP_SSH_KEY_FILE" "${QNAP_SSH_KEY_FILE}"; then
+        return 1
+    fi
+
+    return 0
+}
+
 validate_cron() {
     # Split into fields
     set -- $CCQ_CRON_SCHEDULE 
@@ -30,6 +92,11 @@ validate_cron() {
     # If we reach here, schedule is valid
     log "Cron schedule validated"
 }
+
+if ! validate_required_env; then
+    log "Environment validation failed"
+    exit 1
+fi
 
 log "Validating cron schedule: $CCQ_CRON_SCHEDULE"
 validate_cron

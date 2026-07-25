@@ -1,4 +1,27 @@
 #!/bin/sh
+
+## required ENV Values from Docker Compose or Environment:
+##
+## Certwarden Configuartion
+##
+#   CW_HOST                (required)  hostname for the certwarden instance, including port (443) 
+#   CW_CERT_NAME           (required)  Certificate name used to build API path (certwarden/api/v1/download/privatecerts/<<CW_CERT_NAME>> for qnap)
+#   CW_CERT_API_KEY        (required)  The API Key for the certificate
+#   CW_KEY_API_KEY         (required)  The API Key for the certificate's Key
+
+##
+## QNAP Configuration
+##
+#   QNAP_CERT_PATH         (optional)  full path path to QNAP certificate file.
+#                                      Default is "/etc/stunnel/stunnel.pem" but can be overridden if the certificate is stored in a different location on the NAS.
+#   QNAP_HOST              (required)  IP / Hostname for the local NAS
+#   QNAP_ADMIN_USER        (optional) username for the admin account on the nas to copy the cert and restart the stunnel and Qthttpd services.
+#                                     Default is "admin" but can be overridden if the admin account has been renamed.   
+#   QNAP_SSH_KEY_FILE      (required) path within the container to the SSH SSH key to be used by the QNAP_ADMIN_USER to copy the cert 
+#                                     and restart the  stunnel and Qthttpd services.
+#                                     To persist across restarts, this should exist in the persistent data folder
+
+
 set -eu
 
 log() {
@@ -7,6 +30,24 @@ log() {
 
 check_ssh_health() {
     log "Checking SSH connectivity to QNAP..."
+
+    if [ -z "${qnap_ssh_key:-}" ]; then
+        log "ERROR: QNAP_SSH_KEY_FILE is not set"
+        return 1
+    fi
+
+    if [ ! -f "$qnap_ssh_key" ]; then
+        log "ERROR: SSH key file not found at '$qnap_ssh_key'"
+        return 1
+    fi
+
+    current_mode=$(stat -c '%a' "$qnap_ssh_key" 2>/dev/null || true)
+    if [ "$current_mode" != "600" ]; then
+        chmod 600 "$qnap_ssh_key"
+        log "Set permissions on SSH key file '$qnap_ssh_key' to 600"
+    else
+        log "SSH key already has 600 permissions"
+    fi
 
     ssh -i "$qnap_ssh_key" \
         -o StrictHostKeyChecking=no \
@@ -32,32 +73,10 @@ check_ssh_health() {
     return 0
 }
 
-### required ENV Values:
-#  CW_CERT_API_KEY   - The API Key for the certificate
-#  CW_KEY_API_KEY    - The API Key for the certificate's Key
-#  CW_HOST         - hostname for the certwarden instance, including port (443) 
-#  CW_CERT_NAME      - Certificate name used to build API path (certwarden/api/v1/download/privatecerts/<<CW_CERT_NAME>> for qnap)
-#  CW_CERT_FILE_NAME - output file name (stunnel.pem for QNAP)
-#  CW_NAS_HOST       - IP / Hostname for the local NAS
-#  CW_NAS_ADMIN_USER - username for the admin account on the nas to restart stunnel and Qthttpd services
-#  CW_NAS_SSH_KEY    - filename to use for the SSH key to restart stunnel and Qthttpd services
-# 
-#
-#
-# /opt/certwarden needs to be bind-mounted to a valid published share on the local QNAP device
-#      then witin that share place the SSH key to be used.
-
-
-# sudo crontab -e
-# @reboot sleep 120 && /script/path/here
-# 5 4 * * 2 /script/path/here
-
 now=`date '+%Y%m%d.%H%M%S'`
 
 ## Set VARs in accord with environment
-#cert_apikey=Wz2t0NpbrrSuR9sMmGbX3vKlQPMrkr7e
 cert_apikey=$CW_CERT_API_KEY
-#key_apikey=Wz2t0NpbrrSuR9sMmGbX3vKlQPMrkr7e
 key_apikey=$CW_KEY_API_KEY
 
 # server hosting key/cert
@@ -92,7 +111,7 @@ temp_cert_file=$temp_certs/$cert_file_name
 # destination path on the NAS where the certificate should be copied
 # override by setting CW_NAS_DEST_PATH in the environment when needed
 qnap_cert_path=${QNAP_CERT_PATH:-/etc/stunnel/$cert_file_name}
-qnap_cert_backup_path=${QNAP_CERT_BACKUP_PATH:-/etc/stunnel/$cert_file_name.$now}
+qnap_cert_backup_path=${qnap_cert_path}.${now}
 
 ## Script
 # stop / fail on any error
