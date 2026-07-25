@@ -72,21 +72,20 @@ api_cert_path=certwarden/api/v1/download/privatecerts/$CW_CERT_NAME
 cert_file_name=$CW_CERT_NAME.pem
 
 # userid for admin account (should be admin)
-qnap_admin_user=$CW_NAS_ADMIN_USER
+qnap_admin_user=$QNAP_ADMIN_USER
 
 # hostname for the QNAP NAS
 qnap_host=$QNAP_HOST
 
 # filename for the SSH KEY to authenticate qnap_admin_user
-qnap_ssh_key=$QNAP_SSH_KEY
-
+qnap_ssh_key=$QNAP_SSH_KEY_FILE
 
 # local cert storage (copy from QNAP NAS to here for comparison)
-local_certs=/opt/certwarden/data/certificates
+local_certs=/data/certificates
 local_cert_file=$local_certs/$cert_file_name
 
 # temp cert storage (copy from Certwarden to here for comparison)
-temp_certs=/opt/certwarden/data/temp
+temp_certs=/data/temp
 temp_cert_file=$temp_certs/$cert_file_name
 
 
@@ -141,10 +140,7 @@ fi
 #####
 #####	Get current certificate from the NAS 
 #####
-log "Getting certificate from NAS ($qnap_host:$qnap_cert_path)..."
-
-# copy the new certificate from the NAS using scp so it can be compared with the downloaded certificate from Certwarden
-log "Copying certificate from NAS ($qnap_host:$qnap_cert_path) via scp..."
+log "Getting certificate from NAS ($qnap_host:$qnap_cert_path) via scp..."
 scp_output=$(scp -i "$qnap_ssh_key" \
 	-o StrictHostKeyChecking=no \
 	-o BatchMode=yes \
@@ -158,7 +154,7 @@ log "   scp output:"
 log "$scp_output"
 
 if [ $scp_status -ne 0 ]; then
-	log "ERROR: Failed to copy certificate to NAS (scp exit code $scp_status)"
+	log "ERROR: Failed to retrieve certificate from NAS (scp exit code $scp_status)"
 	# return non-zero so callers can validate the copy failed
 	return $scp_status
 fi
