@@ -1,5 +1,41 @@
 FROM alpine:3.24
 
+# Environment variables (override at runtime as needed with -e)
+
+##
+## Certwarden Configuartion
+##
+#   CW_HOST                (required)  hostname for the certwarden instance, including port (443) 
+#   CW_CERT_NAME           (required)  Certificate name used to build API path (certwarden/api/v1/download/privatecerts/<<CW_CERT_NAME>> for qnap)
+#   CW_CERT_API_KEY        (required)  The API Key for the certificate
+#   CW_KEY_API_KEY         (required)  The API Key for the certificate's Key
+
+##
+## QNAP Configuration
+##
+#   QNAP_CERT_PATH         (optional)  full path path to QNAP certificate file.
+#                                      Default is "/etc/stunnel/stunnel.pem" but can be overridden if the certificate is stored in a different location on the NAS.
+ENV QNAP_CERT_PATH="/etc/stunnel/stunnel.pem"
+#   QNAP_HOST              (required)  IP / Hostname for the local NAS
+#   QNAP_ADMIN_USER        (optional) username for the admin account on the nas to copy the cert and restart the stunnel and Qthttpd services.
+#                                     Default is "admin" but can be overridden if the admin account has been renamed.   
+ENV QNAP_ADMIN_USER="admin"
+#   QNAP_SSH_KEY_FILE      (optional) path within the container to the SSH SSH key to be used by the QNAP_ADMIN_USER to copy the cert 
+#                                     and restart the  stunnel and Qthttpd services.
+#                                     To persist across restarts, this should exist in the persistent data folder.
+#                                     The container will enforce 0600 permissions on this file for SSH compatibility.
+#                                     Default is "/data/.ssh/id_rsa" but can be overridden if the key is stored in a different location on the host.
+ENV QNAP_SSH_KEY_FILE="/data/.ssh/id_rsa"
+
+
+##
+## Optional Custom Cron Schedule
+##
+#   CCQ_CRON_SCHEDULE       (optional) Custom cron schedule to run the certwarden-client-qnap.sh script. 
+#                                      Default is every 6 hours (0 */6 * * *).
+ENV CCQ_CRON_SCHEDULE="0 */6 * * *"
+
+
 # Install required packages
 RUN apk add --no-cache \
     bash \
@@ -21,37 +57,6 @@ RUN chmod +x /app/certwarden-client-qnap.sh
 # Copy the entrypoint script from your repo
 RUN cp /tmp/repo/src/entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
-
-# Environment variables (override at runtime)
-
-##
-## Certwarden Configuartion
-##
-#   CW_HOST                (required)  hostname for the certwarden instance, including port (443) 
-#   CW_CERT_NAME           (required)  Certificate name used to build API path (certwarden/api/v1/download/privatecerts/<<CW_CERT_NAME>> for qnap)
-#   CW_CERT_API_KEY        (required)  The API Key for the certificate
-#   CW_KEY_API_KEY         (required)  The API Key for the certificate's Key
-
-##
-## QNAP Configuration
-##
-#   QNAP_CERT_PATH         (optional)  full path path to QNAP certificate file.
-#                                      Default is "/etc/stunnel/stunnel.pem" but can be overridden if the certificate is stored in a different location on the NAS.
-ENV QNAP_CERT_PATH="/etc/stunnel/stunnel.pem"
-#   QNAP_HOST              (required)  IP / Hostname for the local NAS
-#   QNAP_ADMIN_USER        (optional) username for the admin account on the nas to copy the cert and restart the stunnel and Qthttpd services.
-#                                     Default is "admin" but can be overridden if the admin account has been renamed.   
-ENV QNAP_ADMIN_USER="admin"
-#   QNAP_SSH_KEY_FILE      (required) path within the container to the SSH SSH key to be used by the QNAP_ADMIN_USER to copy the cert 
-#                                     and restart the  stunnel and Qthttpd services.
-#                                     To persist across restarts, this should exist in the persistent data folder
-
-##
-## Optional Custom Cron Schedule
-##
-#   CCQ_CRON_SCHEDULE       (optional) Custom cron schedule to run the certwarden-client-qnap.sh script. 
-#                                      Default is every 6 hours (0 */6 * * *).
-ENV CCQ_CRON_SCHEDULE="0 */6 * * *"
 
 
 # Perform run startup script to perform initial certificate checks and run cron in the foreground

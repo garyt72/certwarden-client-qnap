@@ -1,250 +1,158 @@
 # certwarden-client-qnap
 
-A lightweight Alpine-based automation container designed specifically for **QNAP Container Station**.  
-It retrieves private certificates from a CertWarden instance, installs them onto a QNAP NAS, and restarts the necessary services when updates occur.
+A lightweight Alpine-based container for syncing private certificates from CertWarden to a QNAP NAS over SSH.
 
-The certificate check and update process runs:
-
-- **Immediately at startup**
-- **Periodically via cron** (default: every 6 hours)
-
-All output is written directly to Docker logs for easy monitoring.
+It runs once at startup and then continues to check for updated certificates on a configurable cron schedule. When a new certificate is found, it downloads the PEM content from CertWarden, copies it to the NAS, and restarts the relevant services so the new certificate is applied.
 
 ---
 
-## Features
+## What it does
 
-- Automated certificate retrieval from CertWarden  
-- Automatic installation on QNAP NAS  
-- Automatic restart of `stunnel` and `Qthttpd` services to apply the certificate
-- Startup execution + cron-scheduled execution  
-- Hardened SSH (no prompts, no hangs)  
-- Network reachability diagnostics  
-- Full logging to Container Station console  
-- Designed specifically for QNAP filesystem constraints
+- Downloads a private certificate bundle from CertWarden
+- Writes the certificate to a PEM file locally in the container
+- Copies the certificate to the QNAP NAS using SCP
+- Restarts `stunnel` and `Qthttpd` over SSH when the certificate changes
+- Runs immediately at startup and on a cron schedule
+- Logs all activity to stdout for Docker or Container Station monitoring
 
 ---
 
-## Designed for QNAP Container Station
+## Current implementation details
 
-This container is built to run inside **QNAP Container Station**, respecting QNAP’s filesystem layout and service architecture.
+The current scripts are:
 
-Because Container Station cannot bind-mount protected system directories (like `/etc/stunnel`), the container uses a **bind-mounted QNAP share** containing:
+- [src/certwarden-client-qnap.sh](src/certwarden-client-qnap.sh) — the main certificate sync logic
+- [src/entrypoint.sh](src/entrypoint.sh) — cron setup and startup execution
+- [Dockerfile](Dockerfile) — Alpine image, dependencies, and runtime environment defaults
 
-- your SSH private key  
-- a **symlink** pointing to QNAP’s internal certificate directory  
-
-This allows the container to update QNAP’s active HTTPS certificate indirectly and safely.
-
----
-
-## QNAP Certificate Location
-
-QNAP stores its active HTTPS certificate here:
-
-```
-/etc/stunnel/stunnel.pem
-```
-
-This file must contain:
-
-1. **Private key** 
-2. **Certificate**  
-
-Both concatenated into a single `.pem` file.
-
-Your container automatically downloads the certificate + key from CertWarden and writes them into a single PEM file (`stunnel.pem` by default).
+The implementation uses SSH and SCP to interact with the NAS. It does not rely on a bind-mounted QNAP share for the certificate directory itself; instead, it uses the NAS SSH key provided via environment variables.
 
 ---
 
-## Required Symlink Setup on QNAP
+## Requirements
 
-Container Station cannot directly mount `/etc/stunnel`, so you must create a symlink inside a normal QNAP share.
+Before running the container, make sure:
 
-### Steps
+- The CertWarden host is reachable from the container
+- The QNAP NAS host is reachable from the container
+- The container can authenticate to the NAS with SSH public key authentication
+- The SSH private key file is available inside the container and is readable by the container user
 
-1. Choose or create a QNAP share, e.g.:
-
-```
-/share/CACHEDEV1_DATA/certwarden
-```
-
-2. SSH into your QNAP NAS.
-
-3. Create a symlink inside the share pointing to the protected certificate directory:
-
-```sh 
-ln -s /etc/stunnel /share/CACHEDEV1_DATA/certwarden/stunnel
-```
-
-4. Bind-mount the share into your container:
-
-```
--v /share/CACHEDEV1_DATA/certwarden:/opt/certwarden
-```
-
-### Resulting structure inside the container
-
-```
-/opt/certwarden/id_rsa
-/opt/certwarden/stunnel/stunnel.pem   -> /etc/stunnel/stunnel.pem
-```
-
-This gives the container indirect access to QNAP’s certificate directory.
+The container will automatically enforce `0600` permissions on the SSH private key file when it is used.
 
 ---
 
-## QNAP Certificate Format Requirement
-
-QNAP requires the certificate to be stored as a **single concatenated PEM file**:
-
-```
------BEGIN PRIVATE KEY-----
-...
------END PRIVATE KEY-----
------BEGIN CERTIFICATE-----
-...
------END CERTIFICATE-----
------BEGIN CERTIFICATE-----
-(intermediate)
------END CERTIFICATE-----
-```
-
-Your container automatically produces this format using the CertWarden API.
-
----
-
-## Environment Variables
+## Environment variables
 
 ### Required
 
 | Variable | Description |
-|---------|-------------|
-| **CW_CERT_API_KEY** | CertWarden API key for certificate retrieval |
-| **CW_KEY_API_KEY** | CertWarden API key for private key retrieval |
-| **CW_HOST** | CertWarden hostname + port (e.g., `certwarden.example.com:443`) |
-| **CW_CERT_NAME** | Certificate name used in the CertWarden API path |
-| **CW_NAS_HOST** | QNAP NAS hostname or IP |
-| **CW_NAS_SSH_KEY** | Filename of SSH private key inside `/opt/certwarden` |
-
----
+|---|---|
+| `CW_HOST` | CertWarden hostname including port, for example `certwarden.example.com:443` |
+| `CW_CERT_NAME` | Certificate name used to build the CertWarden API path |
+| `CW_CERT_API_KEY` | API key for the certificate download |
+| `CW_KEY_API_KEY` | API key for the private key download |
+| `QNAP_HOST` | QNAP NAS hostname or IP address |
 
 ### Optional
 
 | Variable | Default | Description |
-|----------|---------|-------------|
-| **CW_CRON_SCHEDULE** | `0 */6 * * *` | Cron schedule for periodic certificate checks |
-| **CW_CERT_FILE_NAME** | `stunnel.pem` | Output certificate filename |
-| **CW_NAS_ADMIN_USER** | `admin` | SSH username for NAS service restart |
+|---|---|---|
+| `QNAP_CERT_PATH` | `/etc/stunnel/stunnel.pem` | Destination certificate path on the QNAP NAS |
+| `QNAP_ADMIN_USER` | `admin` | SSH user account used for SCP/SSH operations |
+| `QNAP_SSH_KEY_FILE` | `/data/.ssh/id_rsa` | Path to the SSH private key inside the container |
+| `QNAP_CERT_BACKUP_PATH` | `/etc/stunnel/<name>.pem.<timestamp>` | Backup path used on the NAS before replacing the cert |
+| `CCQ_CRON_SCHEDULE` | `0 */6 * * *` | Cron schedule for periodic checks |
+
+> The container defaults to using the SSH key at `/data/.ssh/id_rsa`. If you mount a key into that path, the container can use it without extra configuration.
 
 ---
 
-## Bind-Mount Requirements
+## Certificate format
 
-Your QNAP share must contain:
+The script downloads the private key and certificate from CertWarden and writes them into a single PEM file. The output filename is based on the certificate name, using the pattern:
 
-| File / Symlink | Purpose |
-|----------------|---------|
-| **SSH key file** | Used to authenticate to the NAS for service restarts |
-| **`stunnel` symlink** | Points to `/etc/stunnel` so the container can update `stunnel.pem` |
-
-Example share contents:
-
-```
-/share/CACHEDEV1_DATA/certwarden/
-    id_rsa
-    stunnel -> /etc/stunnel
+```text
+<certificate-name>.pem
 ```
 
-Bind-mount this share:
+For example, if `CW_CERT_NAME=mycert`, the container writes:
 
-```
--v /share/CACHEDEV1_DATA/certwarden:/opt/certwarden
+```text
+/data/certificates/mycert.pem
 ```
 
 ---
 
-## Cron Scheduling
+## Persistent storage
 
-The container dynamically generates its crontab at startup based on:
+The container uses these internal locations:
 
+- `/data/certificates` — local copy of the current certificate for comparison
+- `/data/temp` — temporary download area for the latest CertWarden certificate
+
+If you want the SSH key to survive container restarts, mount it into the container at a persistent path such as:
+
+```bash
+-v /path/to/your/ssh/key:/data/.ssh/id_rsa
 ```
-CW_CRON_SCHEDULE
-```
-
-Examples:
-
-| Schedule | Meaning |
-|----------|---------|
-| `0 */6 * * *` | Every 6 hours (default) |
-| `0 0 * * *` | Daily at midnight |
-| `*/30 * * * *` | Every 30 minutes |
-
-Invalid schedules automatically fall back to the default.
 
 ---
 
-## Logging
-
-All logs (entrypoint + certificate script + SSH output) are written directly to Docker logs:
-
-```
-docker logs certwarden-client-qnap
-```
-
-Container Station displays these logs in its UI.
-
----
-
-## Example Container Station Deployment
-
-Inside Container Station:
-
-1. Create a new container  
-2. Set the image to your published version  
-3. Add the environment variables  
-4. Add the bind-mount:
-
-```
-Host path: /share/CACHEDEV1_DATA/certwarden
-Container path: /opt/certwarden
-```
-
-5. Start the container
-
-You will see certificate sync logs immediately in Container Station’s console.
-
----
-
-## Example Docker Run
+## Example Docker run
 
 ```bash
 docker run -d \
   --name certwarden-client-qnap \
-  -v /share/CACHEDEV1_DATA/certwarden:/opt/certwarden \
-  -e CW_CERT_API_KEY="your-cert-api-key" \
-  -e CW_KEY_API_KEY="your-key-api-key" \
+  -v /path/to/ssh/key:/data/.ssh/id_rsa \
   -e CW_HOST="certwarden.example.com:443" \
   -e CW_CERT_NAME="mycert" \
-  -e CW_NAS_HOST="192.168.1.10" \
-  -e CW_NAS_SSH_KEY="id_rsa" \
+  -e CW_CERT_API_KEY="your-cert-api-key" \
+  -e CW_KEY_API_KEY="your-key-api-key" \
+  -e QNAP_HOST="192.168.1.10" \
+  -e QNAP_ADMIN_USER="admin" \
+  -e QNAP_SSH_KEY_FILE="/data/.ssh/id_rsa" \
   garyt72/certwarden-client-qnap:latest
 ```
 
 ---
 
-## Summary
+## Example Docker Compose
 
-This container provides:
+```yaml
+services:
+  certwarden-client-qnap:
+    image: garyt72/certwarden-client-qnap:latest
+    container_name: certwarden-client-qnap
+    volumes:
+      - /path/to/ssh/key:/data/.ssh/id_rsa
+    environment:
+      CW_HOST: certwarden.example.com:443
+      CW_CERT_NAME: mycert
+      CW_CERT_API_KEY: your-cert-api-key
+      CW_KEY_API_KEY: your-key-api-key
+      QNAP_HOST: 192.168.1.10
+      QNAP_ADMIN_USER: admin
+      QNAP_SSH_KEY_FILE: /data/.ssh/id_rsa
+      CCQ_CRON_SCHEDULE: 0 */6 * * *
+```
 
-- Automated certificate retrieval from CertWarden  
-- Automatic installation on QNAP NAS  
-- Automatic service restart when certificates change  
-- Startup execution + cron-scheduled execution  
-- Full logging to Container Station  
-- Hardened SSH behavior  
-- Network diagnostics  
-- QNAP-compatible certificate formatting  
-- Symlink-based access to protected QNAP directories  
+---
 
-It is designed to be reliable, predictable, and easy to monitor inside QNAP Container Station.
+## Logging
+
+The container writes logs to stdout, so you can view them with:
+
+```bash
+docker logs certwarden-client-qnap
+```
+
+In QNAP Container Station, these logs will appear in the container console.
+
+---
+
+## Notes
+
+- The container uses non-interactive SSH options and disables password authentication for the NAS connection.
+- If the SSH key is missing or not usable, the container will fail early and log the reason.
+- The startup script validates the cron schedule and falls back to the default schedule if the expression is invalid.
