@@ -218,7 +218,7 @@ if ( ! cmp -s "$temp_cert_file" "$local_cert_file" ) ; then
 	#####
 	log "   installing new certificate..."	
 	
-	# copy the new certificate to the NAS using scp so it can be validated there
+	# copy the new certificate to the NAS
 	log "Copying the new certificate to NAS ($qnap_host:$qnap_cert_path) via scp..."
 	scp_output=$(scp -i "$qnap_ssh_key" \
 		-o StrictHostKeyChecking=no \
