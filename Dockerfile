@@ -35,12 +35,20 @@ ENV QNAP_SSH_KEY_FILE="/data/.ssh/id_rsa"
 #                                      Default is every 6 hours (0 */6 * * *).
 ENV CCQ_CRON_SCHEDULE="0 */6 * * *"
 
+##
+## Optional Timezone for Logging
+##
+#   TZ                       (optional) define timezone to use for logging timestamps.
+#                                       Default is to pass through the host timezone, but can be overridden if desired.
+ENV TZ=${TZ}
+
 
 # Install required packages
 RUN apk add --no-cache \
     bash \
     curl \
     git \
+    tzdata \
     openssh-client \
     ca-certificates \
     busybox-suid   # provides crond with proper permissions
