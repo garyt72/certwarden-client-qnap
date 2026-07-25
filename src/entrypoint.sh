@@ -32,7 +32,7 @@ validate_env_value() {
     return 0
 }
 
-validate_required_env() {
+validate_env() {
 
     if ! validate_env_value "CW_HOST" "${CW_HOST}"; then
         return 1
@@ -72,6 +72,11 @@ validate_required_env() {
         log "WARNING: QNAP_SSH_KEY_FILE is not set; SSH operations will fail until the key is provided"
     fi
 
+    if ! validate_env_value "TZ" "${TZ}"; then
+        return 0
+    fi
+
+
     return 0
 }
 
@@ -99,7 +104,7 @@ validate_cron() {
     log "Cron schedule validated"
 }
 
-if ! validate_required_env; then
+if ! validate_env; then
     log "Environment validation failed"
     exit 1
 fi
