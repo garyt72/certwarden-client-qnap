@@ -135,12 +135,16 @@ else
     log "Skipping initial run because QNAP_SSH_KEY_FILE is not set"
 fi
 
+
+# Start the cron daemon
 log "Starting cron..."
 crond -f -l 2 >> /proc/1/fd/1 2>&1 &
 
+# If command-line arguments are provided, execute them
 if [ "$#" -gt 0 ]; then
-    exec "$@"
-else
-    exec /bin/sh
+    "$@" >> /proc/1/fd/1 2>&1 &
 fi
+
+# Keep the container running indefinitely
+exec sleep infinity
 
