@@ -35,21 +35,24 @@ RUN chmod +x /app/entrypoint.sh
 ##
 ## QNAP Configuration
 ##
-#   QNAP_CERT_PATH         (optional)  path to target certificate file (stunnel.pem for QNAP)
+#   QNAP_CERT_PATH         (optional)  full path path to QNAP certificate file.
+#                                      Default is "/etc/stunnel/stunnel.pem" but can be overridden if the certificate is stored in a different location on the NAS.
 ENV QNAP_CERT_PATH="/etc/stunnel/stunnel.pem"
 #   QNAP_HOST              (required)  IP / Hostname for the local NAS
-#   QNAP_ADMIN_USER        (optional) username for the admin account on the nas to restart stunnel and Qthttpd services
+#   QNAP_ADMIN_USER        (optional) username for the admin account on the nas to copy the cert and restart the stunnel and Qthttpd services.
+#                                     Default is "admin" but can be overridden if the admin account has been renamed.   
 ENV QNAP_ADMIN_USER="admin"
-#   QNAP_SSH_KEY_file      (required) path within the container to the SSH SSH key to be used by the QNAP_ADMIN_USER to copy the cert 
+#   QNAP_SSH_KEY_FILE      (required) path within the container to the SSH SSH key to be used by the QNAP_ADMIN_USER to copy the cert 
 #                                     and restart the  stunnel and Qthttpd services.
-#                                      to persist across restarts, this should exist in the persistent data folder
+#                                     To persist across restarts, this should exist in the persistent data folder
 
 ##
 ## Optional Custom Cron Schedule
 ##
-#   CCQ_CRON_SCHEDULE       (optional)  Default cron schedule (every 6 hours)
+#   CCQ_CRON_SCHEDULE       (optional) Custom cron schedule to run the certwarden-client-qnap.sh script. 
+#                                      Default is every 6 hours (0 */6 * * *).
 ENV CCQ_CRON_SCHEDULE="0 */6 * * *"
 
 
-# Start cron in the foreground
+# Perform run startup script to perform initial certificate checks and run cron in the foreground
 ENTRYPOINT ["/app/entrypoint.sh"]
