@@ -62,8 +62,14 @@ validate_required_env() {
         return 1
     fi
 
-    if ! validate_env_value "QNAP_SSH_KEY_FILE" "${QNAP_SSH_KEY_FILE}"; then
-        return 1
+    if [ -n "${QNAP_SSH_KEY_FILE:-}" ]; then
+        if [ -f "$QNAP_SSH_KEY_FILE" ]; then
+            log "SSH key file found at '$QNAP_SSH_KEY_FILE'"
+        else
+            log "WARNING: SSH key file '$QNAP_SSH_KEY_FILE' was not found yet; continuing so it can be mounted or uploaded later"
+        fi
+    else
+        log "WARNING: QNAP_SSH_KEY_FILE is not set; SSH operations will fail until the key is provided"
     fi
 
     return 0
@@ -111,12 +117,18 @@ echo "$CCQ_CRON_SCHEDULE /app/certwarden-client-qnap.sh >> /proc/1/fd/1 2>&1 "  
 log "Crontab installed"
 
 
-# Run the script immediately on startup
-log "Running certwarden-client-qnap.sh on startup..."
-/app/certwarden-client-qnap.sh >> /proc/1/fd/1 2>&1
-
-log "Initial run complete"
-
+# Run the script immediately on startup only when the SSH key is available
+if [ -n "${QNAP_SSH_KEY_FILE:-}" ]; then
+    if [ -f "$QNAP_SSH_KEY_FILE" ]; then
+        log "Running certwarden-client-qnap.sh on startup..."
+        /app/certwarden-client-qnap.sh >> /proc/1/fd/1 2>&1
+        log "Initial run complete"
+    else
+        log "Skipping initial run because SSH key file '$QNAP_SSH_KEY_FILE' is not available yet"
+    fi
+else
+    log "Skipping initial run because QNAP_SSH_KEY_FILE is not set"
+fi
 
 log "Starting cron..."
 exec crond -f -l 2
