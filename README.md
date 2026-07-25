@@ -2,7 +2,7 @@
 
 A lightweight Alpine-based container for syncing private certificates from CertWarden to a QNAP NAS over SSH.
 
-It runs once at startup and then continues to check for updated certificates on a configurable cron schedule. When a new certificate is found, it downloads the PEM content from CertWarden, copies it to the NAS, and restarts the relevant services so the new certificate is applied.
+It performs an initial check when the SSH key is available, then stays running and checks for updated certificates on a configurable cron schedule. When a new certificate is found, it downloads the PEM content from CertWarden, copies it to the NAS, and restarts the relevant services so the new certificate is applied.
 
 ---
 
