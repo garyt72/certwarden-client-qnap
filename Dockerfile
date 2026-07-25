@@ -61,3 +61,5 @@ RUN chmod +x /app/entrypoint.sh
 
 # Perform run startup script to perform initial certificate checks and run cron in the foreground
 ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["/bin/sh"]
+
