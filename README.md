@@ -36,9 +36,9 @@ Before running the container, make sure:
 - The CertWarden host is reachable from the container
 - The QNAP NAS host is reachable from the container
 - The container can authenticate to the NAS with SSH public key authentication
-- The SSH private key file is available inside the container and is readable by the container user
+- The SSH private key file is available inside the container and is readable by the container user once you mount it or copy it in
 
-The container will automatically enforce `0600` permissions on the SSH private key file when it is used.
+The container creates its required data directories on startup, including `/data/.ssh`, and sets that directory to mode `700`. When the SSH key is later mounted or uploaded, the container will use it for subsequent SSH/SCP operations.
 
 ---
 
@@ -86,10 +86,11 @@ For example, if `CW_CERT_NAME=mycert`, the container writes:
 
 ## Persistent storage
 
-The container uses these internal locations:
+The container creates these internal locations on startup:
 
 - `/data/certificates` — local copy of the current certificate for comparison
 - `/data/temp` — temporary download area for the latest CertWarden certificate
+- `/data/.ssh` — SSH key directory with permissions set to `700`
 
 If you want the SSH key to survive container restarts, mount it into the container at a persistent path such as:
 
@@ -154,5 +155,6 @@ In QNAP Container Station, these logs will appear in the container console.
 ## Notes
 
 - The container uses non-interactive SSH options and disables password authentication for the NAS connection.
-- If the SSH key is missing or not usable, the container will fail early and log the reason.
+- If the SSH key is missing or not usable, the container logs a warning and skips the initial run so it can continue running until the key is available.
 - The startup script validates the cron schedule and falls back to the default schedule if the expression is invalid.
+- The entrypoint validates the configured environment variables before starting the cron loop.
