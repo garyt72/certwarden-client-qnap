@@ -109,7 +109,12 @@ validate_cron
 
 log "Using cron schedule: $CCQ_CRON_SCHEDULE"
 
+# create necessary directories 
 mkdir -p /var/log
+mkdir -p /data/certificates
+mkdir -p /data/temp
+mkdir -p /data/.ssh
+chmod 700 /data/.ssh
 
 # Generate crontab dynamically based on ENV
 echo "$CCQ_CRON_SCHEDULE /app/certwarden-client-qnap.sh >> /proc/1/fd/1 2>&1 "  > /etc/crontabs/root
