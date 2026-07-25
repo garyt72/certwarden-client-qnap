@@ -45,8 +45,6 @@ check_ssh_health() {
     if [ "$current_mode" != "600" ]; then
         chmod 600 "$qnap_ssh_key"
         log "Set permissions on SSH key file '$qnap_ssh_key' to 600"
-    else
-        log "SSH key already has 600 permissions"
     fi
 
     ssh -i "$qnap_ssh_key" \
@@ -54,6 +52,7 @@ check_ssh_health() {
         -o BatchMode=yes \
         -o PreferredAuthentications=publickey \
         -o PasswordAuthentication=no \
+        -o LogLevel=ERROR \
         "$qnap_admin_user@$qnap_host" "echo SSH_OK" \
         >> /proc/1/fd/1 2>&1
 
@@ -73,6 +72,7 @@ check_ssh_health() {
     return 0
 }
 
+log "================================"
 now=`date '+%Y%m%d.%H%M%S'`
 
 ## Set VARs in accord with environment
@@ -165,6 +165,7 @@ scp_output=$(scp -i "$qnap_ssh_key" \
 	-o BatchMode=yes \
 	-o PreferredAuthentications=publickey \
 	-o PasswordAuthentication=no \
+	-o LogLevel=ERROR \
 	"$qnap_admin_user@$qnap_host:$qnap_cert_path" \
 	"$local_cert_file" 2>&1) || true
 scp_status=$?
@@ -198,6 +199,7 @@ if ( ! cmp -s "$temp_cert_file" "$local_cert_file" ) ; then
 		-o BatchMode=yes \
 		-o PreferredAuthentications=publickey \
 		-o PasswordAuthentication=no \
+		-o LogLevel=ERROR \
 		"$qnap_admin_user@$qnap_host:$qnap_cert_path" \
 		"$qnap_admin_user@$qnap_host:$qnap_cert_path.$now" 2>&1) || true
 	scp_status=$?
@@ -224,6 +226,7 @@ if ( ! cmp -s "$temp_cert_file" "$local_cert_file" ) ; then
 		-o BatchMode=yes \
 		-o PreferredAuthentications=publickey \
 		-o PasswordAuthentication=no \
+		-o LogLevel=ERROR \
 		"$local_certs/$cert_file_name" \
 		"$qnap_admin_user@$qnap_host:$qnap_cert_path" 2>&1) || true
 	scp_status=$?
@@ -249,6 +252,7 @@ if ( ! cmp -s "$temp_cert_file" "$local_cert_file" ) ; then
 		-o BatchMode=yes \
 		-o PreferredAuthentications=publickey \
 		-o PasswordAuthentication=no \
+		-o LogLevel=ERROR \
 		"$qnap_admin_user@$qnap_host" \
 		"/etc/init.d/stunnel.sh restart" 2>&1)
 
@@ -274,6 +278,7 @@ if ( ! cmp -s "$temp_cert_file" "$local_cert_file" ) ; then
 		-o BatchMode=yes \
 		-o PreferredAuthentications=publickey \
 		-o PasswordAuthentication=no \
+		-o LogLevel=ERROR \
 		"$qnap_admin_user@$qnap_host" \
 		"/etc/init.d/Qthttpd.sh restart" 2>&1)
 
@@ -298,3 +303,4 @@ log "Cleaning up..."
 rm -rf $temp_certs
 
 log "Finished"
+log "================================"
