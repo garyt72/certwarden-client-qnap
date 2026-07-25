@@ -111,7 +111,6 @@ temp_cert_file=$temp_certs/$cert_file_name
 # destination path on the NAS where the certificate should be copied
 # override by setting CW_NAS_DEST_PATH in the environment when needed
 qnap_cert_path=${QNAP_CERT_PATH:-/etc/stunnel/$cert_file_name}
-qnap_cert_backup_path=${qnap_cert_path}.${now}
 
 ## Script
 # stop / fail on any error
@@ -159,8 +158,8 @@ fi
 #####
 #####	Get current certificate from the NAS 
 #####
-log "Getting certificate from NAS ($qnap_host:$qnap_cert_path) via scp..."
-scp_output=$(scp -i "$qnap_ssh_key" \
+log "Getting the current certificate from NAS ($qnap_host:$qnap_cert_path) via scp..."
+scp_output=$(scp -p -i "$qnap_ssh_key" \
 	-o StrictHostKeyChecking=no \
 	-o BatchMode=yes \
 	-o PreferredAuthentications=publickey \
@@ -194,7 +193,7 @@ if ( ! cmp -s "$temp_cert_file" "$local_cert_file" ) ; then
 	cp -fp $local_cert_file $local_cert_file.$now
 
 	log "   backing up existing certiciate on NAS ($qnap_host:$qnap_cert_path)..."
-	scp_output=$(scp -i "$qnap_ssh_key" \
+	scp_output=$(scp -p -i "$qnap_ssh_key" \
 		-o StrictHostKeyChecking=no \
 		-o BatchMode=yes \
 		-o PreferredAuthentications=publickey \
@@ -220,14 +219,14 @@ if ( ! cmp -s "$temp_cert_file" "$local_cert_file" ) ; then
 	log "   installing new certificate..."	
 	
 	# copy the new certificate to the NAS using scp so it can be validated there
-	log "Copying certificate to NAS ($qnap_host:$qnap_cert_path) via scp..."
+	log "Copying the new certificate to NAS ($qnap_host:$qnap_cert_path) via scp..."
 	scp_output=$(scp -i "$qnap_ssh_key" \
 		-o StrictHostKeyChecking=no \
 		-o BatchMode=yes \
 		-o PreferredAuthentications=publickey \
 		-o PasswordAuthentication=no \
 		-o LogLevel=ERROR \
-		"$local_certs/$cert_file_name" \
+		"$temp_cert_file" \
 		"$qnap_admin_user@$qnap_host:$qnap_cert_path" 2>&1) || true
 	scp_status=$?
 
