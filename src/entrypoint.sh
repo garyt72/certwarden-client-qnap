@@ -136,4 +136,11 @@ else
 fi
 
 log "Starting cron..."
-exec crond -f -l 2
+crond -f -l 2 >> /proc/1/fd/1 2>&1 &
+
+if [ "$#" -gt 0 ]; then
+    exec "$@"
+else
+    exec /bin/sh
+fi
+
