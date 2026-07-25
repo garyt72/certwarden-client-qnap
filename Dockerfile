@@ -39,8 +39,8 @@ ENV CCQ_CRON_SCHEDULE="0 */6 * * *"
 ## Optional Timezone for Logging
 ##
 #   TZ                       (optional) define timezone to use for logging timestamps.
-#                                       Default is to pass through the host timezone, but can be overridden if desired.
-ENV TZ=${TZ}
+#                                       Default is UTC but can be overridden to any valid timezone string (e.g., "America/Chicago").
+ENV TZ="UTC"
 
 
 # Install required packages
